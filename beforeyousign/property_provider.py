@@ -75,8 +75,15 @@ def provider_configured(env: dict[str, str] | None = None) -> bool:
     env = os.environ if env is None else env
     return (
         env.get("BYS_LISTING_PROVIDER") == "opendata"
-        and env.get("BYS_PROVIDER_RIGHTS_CONFIRMED") == "1"
         and bool(env.get("BYS_OPENDATA_API_KEY", "").strip())
+        and (
+            env.get("BYS_PROVIDER_RIGHTS_CONFIRMED") == "1"
+            or (
+                env.get("BYS_PRIVATE_PILOT_ENABLED") == "1"
+                and env.get("BYS_PUBLIC_IMPORT_ENABLED") == "1"
+                and bool(env.get("BYS_PILOT_ACCESS_CODE", ""))
+            )
+        )
     )
 
 
