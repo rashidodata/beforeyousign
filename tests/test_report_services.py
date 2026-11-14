@@ -61,3 +61,82 @@ def test_review_key_stable_does_not_expose_url():
     k=review_cache_key('112592538',['https://img3.idealista.com/photo/123.jpg'])
     assert '112592538' in k
     assert 'http' not in k
+
+class _FakeNeighborhoodCache:
+    def __init__(self):
+        self.data = {}
+    def get(self, key):
+        return self.data.get(key)
+    def set(self, key, value, ex=None, nx=False):
+        if nx and key in self.data:
+            return False
+        self.data[key] = value
+        return True
+    def setex(self, key, ttl, value):
+        self.data[key] = value
+    def delete(self, key):
+        self.data.pop(key, None)
+
+
+class _FakeOverpassResponse:
+    def __init__(self, status, data):
+        import json
+        self.status_code = status
+        self.body = data
+        self.content = json.dumps(data).encode('utf-8')
+    def json(self):
+        return self.body
+
+
+def test_neighborhood_uses_second_provider_after_upstream_503(monkeypatch, caplog):
+    import beforeyousign.report_services as mod
+    redis = _FakeNeighborhoodCache()
+    monkeypatch.setattr(mod, 'redis_connection', lambda: redis)
+    calls = []
+    def fake_post(url, **kw):
+        calls.append(url)
+        if len(calls) == 1:
+            return _FakeOverpassResponse(503, {})
+        return _FakeOverpassResponse(200, {'elements': [
+            {'type':'node','id':31,'lat':40.4268,'lon':-3.7028,
+             'tags':{'shop':'supermarket','name':'Nearby supermarket'}},
+        ]})
+    monkeypatch.setattr(mod.requests, 'post', fake_post)
+    result = mod.neighborhood_summary(40.4266383, -3.7028469)
+    assert result['status'] == 'ok'
+    assert result['groups']['Supermarkets'][0]['name'] == 'Nearby supermarket'
+    assert len(calls) == 2
+    assert calls[0] == 'https://overpass.private.coffee/api/interpreter'
+    assert calls[1] == 'https://overpass-api.de/api/interpreter'
+    assert 'kind=http status=503' in caplog.text
+    assert mod.neighborhood_summary(40.4266383, -3.7028469)['status'] == 'ok'
+    assert len(calls) == 2  # Served from cache, no unnecessary external lookup.
+
+
+def test_neighborhood_respects_429_and_caches_failed_query(monkeypatch):
+    import beforeyousign.report_services as mod
+    cache = _FakeNeighborhoodCache()
+    monkeypatch.setattr(mod, 'redis_connection', lambda: cache)
+    calls = []
+    def fake_post(url, **kw):
+        calls.append(url)
+        return _FakeOverpassResponse(429,{})
+    monkeypatch.setattr(mod.requests,'post',fake_post)
+    result = mod.neighborhood_summary(40.4266383,-3.7028469)
+    assert result['status']=='unavailable'
+    assert len(calls)==1  # Do not bypass the rate limit using the other server.
+    assert mod.neighborhood_summary(40.4266383,-3.7028469)['status']=='unavailable'
+    assert len(calls)==1
+
+
+def test_neighborhood_rejects_overpass_error_remark_even_with_http_200(monkeypatch):
+    import beforeyousign.report_services as mod
+    monkeypatch.setattr(mod,'redis_connection',_FakeNeighborhoodCache)
+    calls=[]
+    def fake_post(url, **kw):
+        calls.append(url)
+        return _FakeOverpassResponse(200,{'remark':'runtime error: query timed out','elements':[]})
+    monkeypatch.setattr(mod.requests,'post',fake_post)
+    result=mod.neighborhood_summary(40.4266383,-3.7028469)
+    assert result['status']=='unavailable'
+    assert len(calls)==1  # A more expensive retry is inappropriate.
