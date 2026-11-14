@@ -195,3 +195,43 @@ def test_true_mismatch_is_logged_as_numeric_ids_only(caplog):
         normalize_property({**RECORD, "adid": 112592538}, URL)
     assert "requested=113074128" in caplog.text
     assert "returned=112592538" in caplog.text
+
+
+def test_opendata_data_message_envelope_imports_verified_property():
+    # Exact top-level keys observed in Render logs; no network or credits.
+    url='https://www.idealista.com/inmueble/112592538/'
+    detail={**RECORD, 'adid':112592538}
+    wrapped={'data': detail, 'message': 'ok'}
+    result=normalize_property(wrapped,url)
+    assert result['status']=='imported'
+    assert result['fields']['monthly_rent_eur']['value']==1500
+    assert result['listing_id']=='112592538'
+
+
+def test_opendata_multiple_envelopes_and_single_item_array():
+    wrapped={'message': 'success', 'data': {'result': [RECORD]}}
+    result=normalize_property(wrapped, URL)
+    assert result['status']=='imported'
+    assert result['fields']['bedrooms']['value']==2
+
+
+def test_opendata_wrapped_wrong_property_remains_rejected():
+    wrapped={'message': 'ok', 'data': {**RECORD, 'adid': 112592538}}
+    with pytest.raises(ProviderError, match='different listing ID'):
+        normalize_property(wrapped,URL)
+
+
+def test_opendata_empty_data_envelope_reports_missing_not_mismatch(caplog):
+    with pytest.raises(ProviderError, match='empty data field'):
+        normalize_property({'data':{},'message':'sensitive arbitrary message'},URL)
+    assert 'sensitive arbitrary message' not in caplog.text
+    assert 'data_type=dict' in caplog.text
+
+
+def test_opendata_nested_status_without_property_does_not_create_fake_details():
+    with pytest.raises(ProviderError, match='no identifiable property'):
+        normalize_property({'data':{'status':'error','message':'no entry'},'message':'failed'},URL)
+
+
+def test_opendata_direct_record_still_supported():
+    assert normalize_property(RECORD, URL)['status']=='imported'
