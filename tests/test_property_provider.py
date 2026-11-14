@@ -112,3 +112,42 @@ def test_private_pilot_can_use_existing_provider_key_without_commercial_flag():
     assert provider_configured(env)
     env.pop('BYS_PILOT_ACCESS_CODE')
     assert not provider_configured(env)
+
+
+def test_idealista_112592538_request_matches_documented_api_without_spending_credits():
+    calls = []
+    class Upstream502(FakeResponse):
+        status_code = 502
+        def iter_content(self, chunk_size=32768):
+            yield b'{"error_code":"upstream_unavailable","message":"Temporary backend issue"}'
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return Upstream502({})
+    with pytest.raises(ProviderError, match=r'HTTP 502.*upstream lookup failed.*upstream_unavailable'):
+        _fetch('112592538', 'es', api_key='test-key', get=fake_get)
+    url, params = calls[0]
+    assert url == 'https://api.opendata-api.com/api/project/idealista/property-details'
+    assert params['params'] == {'key':'test-key','language':'es','location':'es','propertyId':'112592538'}
+    assert params['allow_redirects'] is False
+
+
+def test_upstream_error_message_never_exposes_provider_key(caplog):
+    class ErrorResponse(FakeResponse):
+        status_code = 502
+        def iter_content(self, chunk_size=32768):
+            yield b'{"message":"key=secret-key and user@example.com", "error_code":"upstream_error"}'
+    with pytest.raises(ProviderError) as exc:
+        _fetch('112592538','es',api_key='secret-key',get=lambda *a, **kw:ErrorResponse({}))
+    assert 'secret-key' not in str(exc.value)
+    assert 'secret-key' not in caplog.text
+    assert 'user@example.com' not in caplog.text
+
+
+def test_html_gateway_error_yields_non_json_diagnostic(caplog):
+    class GatewayResponse(FakeResponse):
+        status_code = 502
+        def iter_content(self, chunk_size=32768):
+            yield b'<html><h1>502 Bad Gateway</h1></html>'
+    with pytest.raises(ProviderError):
+        _fetch('112592538','es',api_key='test-key',get=lambda *a,**kw:GatewayResponse({}))
+    assert 'body_type=non_json' in caplog.text
