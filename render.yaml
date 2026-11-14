@@ -1,0 +1,15 @@
+# Free Python API for the BeforeYouSign GitHub Pages frontend.
+# Deploy as a Render Blueprint or create a Python Web Service manually.
+services:
+  - type: web
+    name: beforeyousign-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: BYS_CORS_ORIGINS
+        value: https://rashidodata.github.io,http://localhost:8000,http://127.0.0.1:8000
+      - key: PYTHON_VERSION
+        value: 3.11.11
