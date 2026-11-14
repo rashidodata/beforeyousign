@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections import OrderedDict
 from datetime import datetime, timezone
 import json
+import logging
+import re
 import math
 import os
 from threading import Lock
@@ -20,6 +22,7 @@ import requests
 from beforeyousign.listings import parse_idealista_url
 
 PROVIDER_ENDPOINT = "https://api.opendata-api.com/api/project/idealista/property-details"
+LOG = logging.getLogger("beforeyousign.property_provider")
 CACHE_TTL_SECONDS = 3600
 CACHE_MAX_ENTRIES = 128
 MAX_RESPONSE_BYTES = 2_000_000
@@ -28,7 +31,61 @@ _LOCK = Lock()
 
 
 class ProviderError(Exception):
-    """Non-sensitive failure: never include the provider key or full request URL."""
+    """Safe public exception: never include provider keys or the complete request URL."""
+
+
+def _safe_error_details(response: Any, api_key: str) -> tuple[str, str]:
+    """Inspect a bounded upstream error body. Log metadata only, no secrets/PII."""
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        for chunk in response.iter_content(chunk_size=2048):
+            if total >= 8192:
+                break
+            chunks.append(chunk[:8192-total])
+            total += len(chunks[-1])
+    except (requests.RequestException, OSError):
+        return "unreadable", ""
+    body = b"".join(chunks)
+    if not body:
+        return "empty", ""
+    try:
+        data = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return "non_json", ""
+    if not isinstance(data, dict):
+        return "non_object_json", ""
+    candidate = data.get('error_code') or data.get('code') or data.get('error')
+    if isinstance(candidate, dict):
+        candidate = candidate.get('code') or candidate.get('type')
+    if isinstance(candidate, (int, float)):
+        candidate = str(candidate)
+    if not isinstance(candidate, str) or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,80}', candidate):
+        candidate = ""
+    # We intentionally do not log the provider's free-text message: it may
+    # contain the request URL, API key, advertiser data, or other PII.
+    return "json", candidate
+
+
+def _http_error(response: Any, api_key: str) -> ProviderError:
+    status = int(response.status_code)
+    body_type, code = _safe_error_details(response, api_key)
+    LOG.warning("OpenData request failed: upstream_status=%s body_type=%s error_code=%s",
+                status, body_type, code or 'none')
+    hint = {
+        400: "The API rejected the request parameters.",
+        401: "The OpenData API key was rejected.",
+        402: "The provider requires additional credits or subscription access.",
+        403: "The provider denied access to this operation.",
+        404: "The listing was not available from the provider.",
+        429: "The provider's request limit has been reached.",
+        500: "The provider reported an internal error.",
+        502: "The provider's upstream lookup failed; its own service may be temporarily unavailable.",
+        503: "The provider is temporarily unavailable.",
+        504: "The provider timed out while retrieving the listing.",
+    }.get(status, "The provider did not return a successful response.")
+    suffix = (' (provider code: ' + code + ')' if code else '')
+    return ProviderError(f"OpenData API returned HTTP {status}. {hint}{suffix} No automatic retries were made.")
 
 
 def _num(value: Any, low: float, high: float) -> float | None:
@@ -104,7 +161,7 @@ def _fetch(id_number: str, country: str, *, api_key: str, get: Callable[..., Any
         )
         with response:
             if response.status_code != 200:
-                raise ProviderError("Listing provider could not return this property (HTTP %s)." % response.status_code)
+                raise _http_error(response, api_key)
             chunks: list[bytes] = []
             total = 0
             for chunk in response.iter_content(chunk_size=32768):
