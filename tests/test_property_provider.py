@@ -171,3 +171,27 @@ def test_valid_http_200_but_invalid_json_is_distinguishable(caplog):
     with pytest.raises(ProviderError,match='HTTP 200.*not valid JSON'):
         _fetch('112592538', 'es', api_key='test-key', get=lambda *a,**kw:InvalidResponse({}))
     assert 'json_parse_failed' in caplog.text
+
+
+def test_http_200_error_payload_without_adid_is_not_a_mismatch(caplog):
+    payload = {"status": "error", "message": "unsafe user@example.com secret-value", "error": "lookup_failed"}
+    with pytest.raises(ProviderError, match="without an ad ID") as exc:
+        normalize_property(payload, URL)
+    assert "mismatch" in str(exc.value)
+    assert "property record missing adid" in caplog.text
+    assert "status" in caplog.text
+    assert "user@example.com" not in caplog.text
+    assert "secret-value" not in caplog.text
+
+
+def test_invalid_ad_id_format_does_not_log_attacker_value(caplog):
+    with pytest.raises(ProviderError, match="invalid property ID format"):
+        normalize_property({**RECORD, "adid": "secret-token-instead-of-id"}, URL)
+    assert "secret-token-instead-of-id" not in caplog.text
+
+
+def test_true_mismatch_is_logged_as_numeric_ids_only(caplog):
+    with pytest.raises(ProviderError, match="different listing ID"):
+        normalize_property({**RECORD, "adid": 112592538}, URL)
+    assert "requested=113074128" in caplog.text
+    assert "returned=112592538" in caplog.text
