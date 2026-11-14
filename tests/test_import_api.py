@@ -76,7 +76,7 @@ def test_preview_code_allows_cached_record_without_external_request(monkeypatch)
     assert response.json()['fields']['monthly_rent_eur']['value'] == 1000
 
 
-def test_preview_quota_fails_closed_without_redis(monkeypatch):
+def test_private_preview_no_longer_needs_quota_backend(monkeypatch):
     monkeypatch.setenv('BYS_LISTING_PROVIDER', 'opendata')
     monkeypatch.setenv('BYS_PRIVATE_PILOT_ENABLED', '1')
     monkeypatch.setenv('BYS_PUBLIC_IMPORT_ENABLED', '1')
@@ -84,7 +84,36 @@ def test_preview_quota_fails_closed_without_redis(monkeypatch):
     monkeypatch.setenv('BYS_OPENDATA_API_KEY', 'test-provider-key')
     monkeypatch.delenv('BYS_REDIS_URL', raising=False)
     import beforeyousign.import_quota as quota
+    import beforeyousign.property_provider as provider
     monkeypatch.setattr(quota, 'cached_listing', lambda listing_id: None)
+    calls = []
+    def fake_import(url):
+        calls.append(url)
+        return {'status':'imported', 'fields':{}, 'source_url':URL, 'listing_id':'113074128'}
+    monkeypatch.setattr(provider,'import_listing',fake_import)
     response = client.post('/api/listings/import', json={'url': URL}, headers={'X-BYS-Pilot-Code': 'test-preview-secret'})
     assert response.status_code == 200
-    assert response.json()['status'] == 'provider_unavailable'
+    assert response.json()['status'] == 'imported'
+    assert len(calls) == 1
+
+
+def test_failed_preview_can_retry_same_listing_without_daily_cap(monkeypatch):
+    monkeypatch.setenv('BYS_LISTING_PROVIDER', 'opendata')
+    monkeypatch.setenv('BYS_PRIVATE_PILOT_ENABLED', '1')
+    monkeypatch.setenv('BYS_PUBLIC_IMPORT_ENABLED', '1')
+    monkeypatch.setenv('BYS_PILOT_ACCESS_CODE', 'test-preview-secret')
+    monkeypatch.setenv('BYS_OPENDATA_API_KEY', 'test-provider-key')
+    import beforeyousign.import_quota as quota
+    import beforeyousign.property_provider as provider
+    monkeypatch.setattr(quota, 'cached_listing', lambda listing_id: None)
+    monkeypatch.setattr(quota, 'cache_listing', lambda *args: None)
+    monkeypatch.setattr(quota, 'reserve_lookup', lambda *_: (_ for _ in ()).throw(AssertionError('Daily quota must not be used')))
+    calls = []
+    def fake_import(url):
+        calls.append(url)
+        raise provider.ProviderError('Test upstream failure')
+    monkeypatch.setattr(provider, 'import_listing', fake_import)
+    for _ in range(2):
+        response = client.post('/api/listings/import', json={'url': URL}, headers={'X-BYS-Pilot-Code': 'test-preview-secret'})
+        assert response.status_code == 502
+    assert calls == [URL, URL]
