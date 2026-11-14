@@ -25,7 +25,7 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-BYS-Photo-Token"],
+    allow_headers=["Content-Type", "X-BYS-Photo-Token", "X-BYS-Pilot-Code"],
 )
 
 
@@ -172,6 +172,7 @@ class ListingImportRequest(BaseModel):
 def import_listing_endpoint(
     payload: ListingImportRequest,
     x_bys_import_token: str | None = Header(default=None),
+    x_bys_pilot_code: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Server-only, permission-gated listing lookup; no direct Idealista scraping.
 
@@ -196,9 +197,12 @@ def import_listing_endpoint(
             "message": "Automatic listing data is not yet authorized. Upload listing screenshots or paste the description instead.",
         }
 
-    # Public access uses a strict, shared, fail-closed request quota. This is
-    # intentionally small for the initial pilot; no operator token in JS.
+    # Private pilot: explicitly authorized participants only. Fail closed if
+    # preview code or shared quota storage is missing. Never embed secrets in JS.
     if os.getenv("BYS_PUBLIC_IMPORT_ENABLED") == "1":
+        pilot_code = os.getenv("BYS_PILOT_ACCESS_CODE", "")
+        if not pilot_code or not x_bys_pilot_code or not secrets.compare_digest(pilot_code, x_bys_pilot_code):
+            raise HTTPException(status_code=401, detail="A valid private-preview access code is required.")
         from beforeyousign.import_quota import QuotaUnavailable, reserve_lookup, cached_listing, cache_listing
         cached = cached_listing(identity["listing_id"])
         if cached is not None and cached.get("source_url") == identity["source_url"]:
