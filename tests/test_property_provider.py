@@ -104,3 +104,11 @@ def test_oversized_response_rejected():
             yield b'x' * 2_000_001
     with pytest.raises(ProviderError,match='oversized'):
         _fetch('113074128','es',api_key='x',get=lambda *a,**k:Big(RECORD))
+
+
+def test_private_pilot_can_use_existing_provider_key_without_commercial_flag():
+    env = {'BYS_LISTING_PROVIDER':'opendata', 'BYS_OPENDATA_API_KEY':'test-key',
+           'BYS_PRIVATE_PILOT_ENABLED':'1', 'BYS_PUBLIC_IMPORT_ENABLED':'1', 'BYS_PILOT_ACCESS_CODE':'private-code'}
+    assert provider_configured(env)
+    env.pop('BYS_PILOT_ACCESS_CODE')
+    assert not provider_configured(env)
