@@ -99,7 +99,7 @@
     $('import-property-id').textContent = `Idealista listing #${identity.id}`;
     if (!text) {
       $('import-evidence').replaceChildren();
-      setMessage('Link recognized. We do not automatically read Idealista without authorized access. Paste the listing description below to fill in its details; screenshot analysis requires the private AI backend.', 'warning');
+      setMessage('Link recognized. We do not automatically read Idealista without authorized access. For now, paste the property description to extract its details; direct one-link import and screenshot analysis are not yet available.', 'warning');
       $('import-text').focus();
       return;
     }
@@ -108,14 +108,28 @@
     const count = showFields(fields, source);
     const rent = fields.monthly_rent_eur?.value;
     const area = fields.area_sqm?.value;
-    $('rent').value = rent ?? '';
-    $('size').value = area ?? '';
-    $('kind').value = 'Home';
-    $('rent').dispatchEvent(new Event('input', { bubbles: true }));
-    if (rent && area) {
-      setMessage(`Found ${count} advertised fields. The calculator below has been filled in automatically. Price recommendations still require genuine nearby rental comparables.`, 'success');
+    const summary = $('import-summary');
+    summary.replaceChildren();
+    summary.hidden = false;
+    const title = document.createElement('strong');
+    title.textContent = 'Rental snapshot';
+    summary.append(title);
+    const line = document.createElement('p');
+    const validRent = typeof rent === 'number' && Number.isFinite(rent) && rent > 0;
+    const validArea = typeof area === 'number' && Number.isFinite(area) && area > 0;
+    if (validRent && validArea) {
+      const pricePerSqm = rent / area;
+      line.textContent = new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(pricePerSqm)
+        + '/m² per month, calculated from the supplied asking rent and floor area.';
+      summary.append(line);
+      const caveat = document.createElement('p');
+      caveat.textContent = 'This is not a market valuation. A fair-price recommendation requires verified nearby rental comparables.';
+      summary.append(caveat);
+      setMessage(`Found ${count} advertised fields. Your rental snapshot is ready below; no manual calculator required.`, 'success');
     } else {
-      setMessage(`Found ${count} advertised fields. Some critical information is missing. Please check the listing and fill in any missing rent or area; we won't invent them.`, 'warning');
+      line.textContent = 'A reliable rent-per-m² figure needs both the advertised monthly rent and floor area.';
+      summary.append(line);
+      setMessage(`Found ${count} advertised fields. Some important details are missing from the supplied description; we will not invent them.`, 'warning');
     }
   });
   $('import-demo').addEventListener('click', () => {
