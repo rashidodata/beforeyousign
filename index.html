@@ -92,15 +92,17 @@
     <div class="report-grid" id="report-metrics" aria-live="polite"></div>
     <article class="report-card" id="report-cost">
       <div class="report-kicker">01 · Affordability</div><h3>What will it really cost?</h3>
-      <p class="report-soft">We calculate actual advertised rent plus editable example expenses. Your actual bills, deposit and fees are not known until you confirm them.</p>
+      <p class="report-soft">We calculate the advertised rent and separately show any costs you choose to enter. Unknown electricity, water, gas, internet, insurance, deposit and fees are never assumed to be zero.</p>
       <div class="report-fieldset">
-        <label>Utilities / month (€)<input id="cost-utilities" type="number" min="0" max="100000" step="10" value="90"></label>
-        <label>Internet / month (€)<input id="cost-internet" type="number" min="0" max="100000" step="5" value="30"></label>
-        <label>Insurance / month (€)<input id="cost-insurance" type="number" min="0" max="100000" step="5" value="0"></label>
-        <label>Other bills / month (€)<input id="cost-other" type="number" min="0" max="100000" step="5" value="0"></label>
-        <label>Deposit (months of rent)<input id="cost-deposit-months" type="number" min="0" max="12" step="1" value="1"></label>
-        <label>Other one-off move-in (€)<input id="cost-upfront-extra" type="number" min="0" max="100000" step="50" value="0"></label>
-        <label>Take-home household income (€ / month)<input id="cost-income" type="number" min="0" max="1000000" step="100" value="0" placeholder="Optional"></label>
+        <label>Electricity / month (€)<input id="cost-utilities" type="number" min="0" max="100000" step="10" placeholder="Unknown"></label>
+        <label>Water / month (€)<input id="cost-water" type="number" min="0" max="100000" step="5" placeholder="Unknown"></label>
+        <label>Gas / month (€)<input id="cost-gas" type="number" min="0" max="100000" step="5" placeholder="Unknown"></label>
+        <label>Internet / month (€)<input id="cost-internet" type="number" min="0" max="100000" step="5" placeholder="Unknown"></label>
+        <label>Insurance / month (€)<input id="cost-insurance" type="number" min="0" max="100000" step="5" placeholder="Unknown"></label>
+        <label>Other bills / month (€)<input id="cost-other" type="number" min="0" max="100000" step="5" placeholder="Unknown"></label>
+        <label>Deposit (months of rent)<input id="cost-deposit-months" type="number" min="0" max="12" step="1" placeholder="Unknown"></label>
+        <label>Other one-off move-in (€)<input id="cost-upfront-extra" type="number" min="0" max="100000" step="50" placeholder="Unknown"></label>
+        <label>Take-home household income (€ / month)<input id="cost-income" type="number" min="0" max="1000000" step="100" placeholder="Optional"></label>
       </div>
       <div class="report-grid" id="report-cost-results"></div>
       <p id="report-cost-footnote" class="report-soft"></p>
@@ -115,6 +117,7 @@
       <div class="report-kicker">03 · Neighborhood</div><h3 id="report-neighborhood-heading">Your everyday neighborhood</h3>
       <p class="report-soft" id="report-neighborhood-notice"></p>
       <p class="report-detail-notice" id="report-neighborhood-state">Preparing nearby-place summary…</p>
+      <button id="report-neighborhood-retry" type="button" class="btn btnlight" hidden>Retry nearby places (no listing token used)</button>
       <p id="report-neighborhood-takeaway" class="report-soft"></p>
       <div id="report-nearby-groups" class="report-neighborhood-grid"></div>
       <p class="report-soft">Places come from OpenStreetMap. Distances are straight-line estimates from the advertised map pin, not walking distances. Hours, accessibility, traffic and safety require separate checks.</p>
