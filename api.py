@@ -196,6 +196,31 @@ def import_listing_endpoint(
             "message": "Automatic listing data is not yet authorized. Upload listing screenshots or paste the description instead.",
         }
 
+    # Public access uses a strict, shared, fail-closed request quota. This is
+    # intentionally small for the initial pilot; no operator token in JS.
+    if os.getenv("BYS_PUBLIC_IMPORT_ENABLED") == "1":
+        from beforeyousign.import_quota import QuotaUnavailable, reserve_lookup, cached_listing, cache_listing
+        cached = cached_listing(identity["listing_id"])
+        if cached is not None and cached.get("source_url") == identity["source_url"]:
+            return cached
+        try:
+            quota = reserve_lookup(identity["listing_id"])
+        except QuotaUnavailable:
+            return {**identity, "status": "provider_unavailable", "fields": {},
+                    "message": "Automatic listing service is temporarily unavailable. No lookup was charged."}
+        if quota == "limit_reached":
+            return {**identity, "status": "daily_limit_reached", "fields": {},
+                    "message": "Today's automatic listing import limit has been reached."}
+        if quota == "already_requested":
+            return {**identity, "status": "already_requested", "fields": {},
+                    "message": "This property was requested already today. Please try tomorrow."}
+        try:
+            result = import_listing(payload.url)
+            cache_listing(identity["listing_id"], result)
+            return result
+        except ProviderError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
     # Never let unauthenticated internet requests spend provider credits.
     # A public deployment must first have account auth, quotas, and a
     # durable usage/cost budget; this operator token is only for private QA.
