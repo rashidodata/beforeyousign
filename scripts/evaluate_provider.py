@@ -5,8 +5,8 @@ passed, AND the operator provides a provider key, rights confirmation, and
 import token in environment variables. Never prints or persists secrets.
 
 Examples:
-  python scripts/evaluate_provider.py provider_evaluation/listings.csv
-  python scripts/evaluate_provider.py provider_evaluation/listings.csv --confirm-paid-requests
+  python -m scripts.evaluate_provider provider_evaluation/listings.csv
+  python -m scripts.evaluate_provider provider_evaluation/listings.csv --confirm-paid-requests
 """
 from __future__ import annotations
 
