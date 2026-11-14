@@ -207,7 +207,9 @@ def import_listing_endpoint(
             raise HTTPException(status_code=401, detail="A valid private-preview access code is required.")
         from beforeyousign.import_quota import cached_listing, cache_listing
         cached = cached_listing(identity["listing_id"])
-        if cached is not None and cached.get("source_url") == identity["source_url"] and cached.get("status") == "imported":
+        if (cached is not None and cached.get("source_url") == identity["source_url"]
+                and cached.get("status") == "imported"
+                and "map_pin" in cached and "photo_urls" in cached):
             return cached
         try:
             result = import_listing(payload.url)
