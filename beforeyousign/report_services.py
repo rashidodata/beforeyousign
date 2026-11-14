@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import logging
 import math
 import os
 import re
@@ -18,7 +19,11 @@ from urllib.parse import urlsplit
 import requests
 
 APP_USER_AGENT = 'BeforeYouSign/0.4 (https://github.com/rashidodata/beforeyousign)'
-OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
+OVERPASS_ENDPOINTS = (
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+)
+LOG = logging.getLogger('beforeyousign.report_services')
 CATEGORIES = ('Supermarkets', 'Local markets', 'Pharmacies', 'Public transport', 'Parks', 'Schools & nurseries', 'Cafes')
 PHOTO_HOST = re.compile(r'^(?:[a-z0-9-]+\.)+idealista\.(?:com|pt|it)$', re.I)
 
@@ -169,43 +174,77 @@ def redis_connection():
 
 
 def neighborhood_summary(lat: float, lon: float, radius_m: int = 1200) -> dict[str, Any]:
-    """Small, user-triggered neighborhood summary with shared Redis caching.
+    """Cached amenity summary via two known public Overpass instances.
 
-    A failing cache cannot generate repeated hits on volunteer OSM servers.
+    A failed public query is cached for four minutes. Never repeat against
+    the same host immediately; only use a second host for transport and 5xx
+    failures, not rate limits, invalid queries, or Overpass runtime remarks.
     """
     if _number(lat,-90,90) is None or _number(lon,-180,180) is None or not 300<=radius_m<=2000:
         return {'status':'unavailable','reason':'Location must be a valid map coordinate.'}
     cache = redis_connection()
     if cache is None:
         return {'status':'unavailable','reason':'Nearby-place cache is not configured yet.'}
-    key = f'bys:neighborhood:v2:{lat:.4f}:{lon:.4f}:{radius_m}'
+    key = f'bys:neighborhood:v3:{lat:.4f}:{lon:.4f}:{radius_m}'
     try:
         raw = cache.get(key)
         if raw:
             return json.loads(raw)
-        # Hold a short lock: an in-flight query won't be run again concurrently.
         lock_key = key + ':busy'
         if not cache.set(lock_key, '1', ex=90, nx=True):
-            return {'status':'loading','reason':'Nearby places are already being looked up; refresh shortly.'}
+            return {'status':'loading','reason':'Nearby places are being looked up. Try again in a minute.'}
     except Exception:
         return {'status':'unavailable','reason':'Nearby-place cache is temporarily unavailable.'}
-    result = {'status':'unavailable','reason':'Nearby places could not be retrieved right now.'}
+    result = {'status':'unavailable','reason':'OpenStreetMap lookup is temporarily unavailable. Retry after a few minutes; no nearby distances were invented.'}
+    query = overpass_query(lat, lon, radius_m)
     try:
-        response = requests.post(OVERPASS_URL, data={'data':overpass_query(lat,lon,radius_m)},
-                                 timeout=(5,25),headers={'User-Agent':APP_USER_AGENT,'Accept':'application/json'},
-                                 allow_redirects=False)
-        if response.status_code == 200 and len(response.content) <= 4_000_000:
-            groups = parse_nearby(response.json(),lat,lon)
+        for index, endpoint in enumerate(OVERPASS_ENDPOINTS):
+            source = 'primary' if index == 0 else 'secondary'
+            try:
+                response = requests.post(
+                    endpoint, data={'data':query}, timeout=(5, 26),
+                    headers={'User-Agent':APP_USER_AGENT,'Accept':'application/json'},
+                    allow_redirects=False,
+                )
+            except requests.RequestException as exc:
+                LOG.warning('Neighborhood Overpass request failed: source=%s kind=transport exception=%s',
+                            source, type(exc).__name__)
+                continue
+            code = response.status_code
+            if code != 200:
+                LOG.warning('Neighborhood Overpass request failed: source=%s kind=http status=%s', source, code)
+                # Respect the public service: do not bypass its rate limit.
+                if code not in (500, 502, 503, 504):
+                    break
+                continue
+            if len(response.content) > 4_000_000:
+                LOG.warning('Neighborhood Overpass response oversized: source=%s', source)
+                break
+            try:
+                payload = response.json()
+            except ValueError:
+                LOG.warning('Neighborhood Overpass returned invalid JSON: source=%s', source)
+                break
+            if not isinstance(payload, dict) or 'remark' in payload:
+                LOG.warning('Neighborhood Overpass returned incomplete data: source=%s kind=remark_or_format', source)
+                break
+            if not isinstance(payload.get('elements'), list):
+                LOG.warning('Neighborhood Overpass response missing elements: source=%s', source)
+                break
+            groups = parse_nearby(payload,lat,lon)
+            if not any(groups.values()):
+                LOG.warning('Neighborhood Overpass returned no named amenities: source=%s', source)
+                break
             result = {'status':'ok','groups':groups,'distance_method':'straight_line',
-                      'attribution':'© OpenStreetMap contributors (ODbL)',
-                      'message':'Named, mapped amenities only. Opening hours and walking times are not verified.'}
-    except (ValueError, requests.RequestException):
-        pass
-    try:
-        cache.setex(key, 21600 if result['status']=='ok' else 240, json.dumps(result))
-        cache.delete(key+':busy')
-    except Exception:
-        pass
+                      'attribution':'OpenStreetMap contributors (ODbL)',
+                      'message':'Named, mapped amenities only. Walking routes and opening hours are not verified.'}
+            break
+    finally:
+        try:
+            cache.setex(key, 21600 if result['status']=='ok' else 240, json.dumps(result))
+            cache.delete(lock_key)
+        except Exception:
+            LOG.warning('Neighborhood cache write failed: kind=cache')
     return result
 
 
