@@ -151,3 +151,23 @@ def test_html_gateway_error_yields_non_json_diagnostic(caplog):
     with pytest.raises(ProviderError):
         _fetch('112592538','es',api_key='test-key',get=lambda *a,**kw:GatewayResponse({}))
     assert 'body_type=non_json' in caplog.text
+
+
+def test_connection_error_is_diagnostic_and_never_leaks_api_key(caplog):
+    import requests
+    secret = 'very-private-test-token'
+    def fail(*args, **kwargs):
+        raise requests.ConnectionError('Failed to connect to https://api.opendata-api.com/?key=' + secret)
+    with pytest.raises(ProviderError,match='network or DNS failure') as err:
+        _fetch('112592538', 'es', api_key=secret, get=fail)
+    assert secret not in str(err.value)
+    assert secret not in caplog.text
+    assert 'kind=connection' in caplog.text
+
+def test_valid_http_200_but_invalid_json_is_distinguishable(caplog):
+    class InvalidResponse(FakeResponse):
+        def iter_content(self, chunk_size=32768):
+            yield b'<html>200 upstream proxy returned invalid response</html>'
+    with pytest.raises(ProviderError,match='HTTP 200.*not valid JSON'):
+        _fetch('112592538', 'es', api_key='test-key', get=lambda *a,**kw:InvalidResponse({}))
+    assert 'json_parse_failed' in caplog.text
