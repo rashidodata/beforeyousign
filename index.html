@@ -34,12 +34,101 @@
 #import-status[data-kind=success]{background:#e2f2df;color:#275c32}
 @media(max-width:850px){.import-layout{grid-template-columns:1fr}}
 @media(max-width:550px){.import-panel{padding:19px}.import-evidence{grid-template-columns:1fr}}
+
+/* Property decision report: evidence-led, responsive and readable */
+#property-report[hidden]{display:none!important}
+.report-shell{background:#f5f7f0;padding:66px 0 80px}
+.report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:24px}
+.report-head h2{font-size:clamp(30px,4vw,47px);line-height:1.12;letter-spacing:-1.6px;margin:9px 0}
+.report-kicker{color:#2c7051;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:1.6px}
+.report-soft{color:#61756c;font-size:13px;line-height:1.55}
+.report-card{background:white;border:1px solid #dbe5da;border-radius:17px;padding:24px;margin-top:19px;box-shadow:0 3px 15px #1c3e2708}
+.report-card h3{font-size:23px;margin:0 0 7px;letter-spacing:-.6px}
+.report-card h4{font-size:16px;letter-spacing:-.2px;margin:0 0 8px}
+.report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.report-metric{background:#f6faf3;border:1px solid #e1e9dc;border-radius:12px;padding:17px;min-width:0}
+.report-metric small{display:block;color:#5f7368;font-size:12px;margin-bottom:4px}
+.report-metric strong{font-size:clamp(20px,2.2vw,29px);display:block;letter-spacing:-.6px;overflow-wrap:anywhere}
+.report-metric small:last-child{margin-top:7px;font-size:11px}
+.report-two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.report-bullets{padding-left:19px;color:#345142;font-size:14px;line-height:1.65}
+.report-bullets li{margin-bottom:7px}
+.report-fieldset{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:18px 0}
+.report-fieldset label{font-size:12px;font-weight:700;color:#38574a;display:flex;flex-direction:column;gap:7px}
+.report-fieldset input{width:100%;min-width:0;padding:10px;border:1px solid #c8d7cc;border-radius:9px;background:#fff;color:#17382b}
+.report-detail-notice{background:#f4f8e6;border:1px solid #dce9be;border-radius:9px;padding:12px 14px;color:#3f5c37;font-size:13px}
+.report-neighborhood-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:19px}
+.report-place-card{border:1px solid #dfe7de;background:#fbfcf9;border-radius:12px;padding:17px;min-width:0}
+.report-place-card h4{color:#194d3c;font-size:17px}
+.report-place-card p{margin:5px 0}
+.report-places{padding-left:21px;margin:12px 0 0}
+.report-places li{padding:6px 0 6px 2px;border-bottom:1px solid #e7eee6;display:list-item;min-width:0;font-size:14px}
+.report-places li:last-child{border-bottom:0}
+.report-places a{color:#205b46;text-decoration:underline;text-underline-offset:2px}
+.report-distance{float:right;margin-left:8px;color:#4f6c5e;font-size:12px;font-weight:750}
+.report-empty{font-size:13px;color:#758377}
+.report-photo-strip{display:flex;gap:11px;overflow-x:auto;padding:8px 0 14px}
+.report-preview-photo{height:164px;min-width:160px;max-width:240px;object-fit:cover;border-radius:10px;background:#eff1ec;border:1px solid #e0e6dd}
+.report-insight{background:#f6faf3;border:1px solid #e4eade;padding:14px 16px;margin-top:13px;border-radius:11px}
+.report-insight ul{padding-left:18px;margin:7px 0 0}
+.report-insight li{font-size:14px;margin-bottom:5px}
+.report-ai-summary{font-weight:650;line-height:1.6}
+@media(max-width:900px){.report-grid,.report-fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.report-head{display:block}.report-two,.report-neighborhood-grid{grid-template-columns:minmax(0,1fr)}.report-card{padding:18px}.report-shell{padding:46px 0}.report-metric{padding:13px}.report-distance{float:none;display:block;margin:2px 0 0}}
 </style></head><body>
 <header class="top"><div class="container"><nav class="nav"><a class="brand" href="#home">Before<em>You</em>Sign<span style="color:#d7eeb3">.</span></a><div class="links"><a href="#features">Why us</a><a href="#how">How it works</a><a class="navcta" href="#import">Analyze a rental →</a></div></nav><div class="hero" id="home"><div><div class="eyebrow">A smarter way to rent</div><h1>Don't just find a place.<br><span>Know its worth.</span></h1><p>That perfect apartment might be overpriced. Compare rental costs, uncover hidden expenses, and investigate what really matters before you sign.</p><div class="actions"><a class="primary" href="#import">Check a property →</a><a class="secondary" href="#features">Explore the features</a></div><p style="font-size:13px;margin-top:27px;color:#aec9b5">No account required · Free early-access tools · Transparent calculations</p></div><div class="heroart" aria-label="Illustrative rental review card"><div class="mininav"><span>PROPERTY SNAPSHOT <span style="font-weight:800">/ DEMO</span></span><span class="pill">Renter's view</span></div><div class="exampleimage" aria-hidden="true"></div><div class="propname">Your next home, understood.</div><div style="color:#789087;font-size:13px">Compare price · Condition · Neighborhood</div><div class="stats"><div class="stat"><b>€/m²</b><small>Rental benchmark</small></div><div class="stat"><b>€ total</b><small>True monthly cost</small></div><div class="stat"><b>Nearby</b><small>Daily essentials</small></div></div><div class="examplefoot"><b>Clear, evidence-based insights.</b><br>Not a guess or a sales pitch. Your inputs, your comparisons, your decision.</div></div></div></div></header>
 <main>
 <section id="import" class="import-shell"><div class="container"><div class="heading"><div class="kicker">Start with a link</div><h2>Paste the listing. We'll handle the numbers.</h2><p>BeforeYouSign is built for renters. Start with an Idealista link. We will extract any listing material you provide and distinguish facts from unknowns.</p></div>
 <div class="import-layout"><form id="import-form" class="import-panel"><label for="import-url">Idealista rental listing URL</label><input id="import-url" type="url" inputmode="url" required placeholder="https://www.idealista.com/inmueble/12345678/" autocomplete="url"><label for="pilot-code">Private preview code</label><input id="pilot-code" type="password" autocomplete="off" spellcheck="false" placeholder="Enter the code shared with your friends" required><p class="smallhelp" style="margin:6px 0 0">Private pilot · access code required. Retry failed listings; successful results are cached.</p><div id="import-fallback" hidden><div class="fallback-head"><strong>Get the listing details without typing them</strong><p>Attach a screenshot of the Idealista listing's price, features and location. The free text reader runs locally in your browser. Screenshots stay on your device for OCR; extracted text is sent to our analysis API.</p></div><label for="import-images">Listing screenshots (PNG, JPG or WebP; up to 3)</label><input id="import-images" type="file" accept="image/png,image/jpeg,image/webp" multiple><details class="text-option"><summary>Or paste the listing description instead</summary><label for="import-text">Listing description</label><textarea id="import-text" placeholder="Optional: paste the rental listing text here."></textarea></details></div><button type="submit" class="primary">Analyze listing →</button> <button type="button" id="import-demo" class="secondary" style="color:#21533d;border-color:#afc7b5">Try a fictional example</button><p id="import-status" role="status" aria-live="polite">Paste an Idealista link to begin. If the listing cannot be imported directly, you can add screenshots instead of typing specifications.</p></form>
 <div class="import-panel"><h3 style="margin:0 0 5px">What we found</h3><p class="import-explainer" id="import-property-id">No property loaded yet.</p><div id="import-evidence" class="import-evidence" aria-live="polite"></div><div id="import-summary" class="import-summary" hidden></div><p class="import-explainer">We separate advertised facts from estimates and unknowns. We calculate asking €/m² from supported evidence. If the listing cannot be imported from its URL, attach screenshots instead. Unverified facts remain unknown.</p></div></div></div></section>
+
+<section id="property-report" class="report-shell" hidden aria-label="Full rental property report">
+  <div class="container">
+    <div class="report-head"><div>
+      <div class="report-kicker">Your rental due diligence</div>
+      <h2>Know this home before you sign.</h2>
+      <p id="report-property-id" class="report-soft">Property information will appear after import.</p>
+    </div><div class="pill" style="display:inline-block">Evidence-led preview</div></div>
+    <div class="report-grid" id="report-metrics" aria-live="polite"></div>
+    <article class="report-card" id="report-cost">
+      <div class="report-kicker">01 · Affordability</div><h3>What will it really cost?</h3>
+      <p class="report-soft">We calculate actual advertised rent plus editable example expenses. Your actual bills, deposit and fees are not known until you confirm them.</p>
+      <div class="report-fieldset">
+        <label>Utilities / month (€)<input id="cost-utilities" type="number" min="0" max="100000" step="10" value="90"></label>
+        <label>Internet / month (€)<input id="cost-internet" type="number" min="0" max="100000" step="5" value="30"></label>
+        <label>Insurance / month (€)<input id="cost-insurance" type="number" min="0" max="100000" step="5" value="0"></label>
+        <label>Other bills / month (€)<input id="cost-other" type="number" min="0" max="100000" step="5" value="0"></label>
+        <label>Deposit (months of rent)<input id="cost-deposit-months" type="number" min="0" max="12" step="1" value="1"></label>
+        <label>Other one-off move-in (€)<input id="cost-upfront-extra" type="number" min="0" max="100000" step="50" value="0"></label>
+        <label>Take-home household income (€ / month)<input id="cost-income" type="number" min="0" max="1000000" step="100" value="0" placeholder="Optional"></label>
+      </div>
+      <div class="report-grid" id="report-cost-results"></div>
+      <p id="report-cost-footnote" class="report-soft"></p>
+      <p class="report-detail-notice" id="report-market-verdict">Market rent comparisons require real nearby comparable listings.</p>
+    </article>
+    <article class="report-card">
+      <div class="report-kicker">02 · Property suitability</div><h3>What looks promising—and what needs checking?</h3>
+      <div class="report-two"><div><h4>Advertised advantages</h4><ul id="report-pros" class="report-bullets"></ul></div>
+      <div><h4>Questions and potential drawbacks</h4><ul id="report-concerns" class="report-bullets"></ul></div></div>
+    </article>
+    <article class="report-card" id="report-neighborhood">
+      <div class="report-kicker">03 · Neighborhood</div><h3 id="report-neighborhood-heading">Your everyday neighborhood</h3>
+      <p class="report-soft" id="report-neighborhood-notice"></p>
+      <p class="report-detail-notice" id="report-neighborhood-state">Preparing nearby-place summary…</p>
+      <p id="report-neighborhood-takeaway" class="report-soft"></p>
+      <div id="report-nearby-groups" class="report-neighborhood-grid"></div>
+      <p class="report-soft">Places come from OpenStreetMap. Distances are straight-line estimates from the advertised map pin, not walking distances. Hours, accessibility, traffic and safety require separate checks.</p>
+    </article>
+    <article class="report-card" id="report-photos">
+      <div class="report-kicker">04 · Visual inspection</div><h3>What do the photos suggest?</h3>
+      <p class="report-soft">AI examines only visible details in advertisement photos—never hidden defects, structural safety, legal compliance or exact room dimensions. Confirm important observations in person.</p>
+      <div id="report-photo-strip" class="report-photo-strip" aria-label="Advertised listing photographs"></div>
+      <p class="report-detail-notice" id="report-ai-state">Photo review will start if trusted listing images and an AI service are available.</p>
+      <div id="report-ai-findings"></div>
+    </article>
+    <p class="report-soft" style="margin-top:20px">BeforeYouSign is a decision-support preview, not a valuation, legal opinion or building inspection. Advertised facts are not independently verified.</p>
+  </div>
+</section>
 <section class="section" id="neighborhood" hidden><div class="container"><div class="twocol"><div><div class="kicker">Neighborhood essentials</div><h2 style="font-size:clamp(31px,3.3vw,45px);letter-spacing:-1.5px;line-height:1.13;margin:13px 0">A home is more than four walls.</h2><p style="color:var(--muted)">After you submit a listing, explore schools, supermarkets, markets, parks and transport near its stated location. If the address is missing, we will tell you.</p><label for="map-location" style="display:block;font-weight:700;margin:17px 0 7px">Neighborhood or street (optional)</label><input id="map-location" autocomplete="off" placeholder="e.g. Malasaña, Madrid" style="width:100%;max-width:390px;padding:12px 14px;border:1px solid #c2d1c6;border-radius:9px"><p id="map-status" class="smallhelp" role="status" aria-live="polite">The property location will be filled in when we can extract it from the supplied listing.</p><div class="amenities"><a class="amenity" data-query="supermarket" href="#neighborhood"><span>🛒</span><div>Supermarkets<small>Everyday groceries</small></div></a><a class="amenity" data-query="marketplace" href="#neighborhood"><span>🥬</span><div>Local markets<small>Food and neighborhood shops</small></div></a><a class="amenity" data-query="school" href="#neighborhood"><span>🎓</span><div>Schools<small>Education options</small></div></a><a class="amenity" data-query="kindergarten" href="#neighborhood"><span>🧸</span><div>Nurseries<small>Childcare options</small></div></a><a class="amenity" data-query="park" href="#neighborhood"><span>🌳</span><div>Parks<small>Green spaces nearby</small></div></a><a class="amenity" data-query="station" href="#neighborhood"><span>🚇</span><div>Transit<small>Metro, bus and rail links</small></div></a></div><p class="smallhelp">These links open OpenStreetMap searches, not verified walking routes, distances or individual recommendations.</p></div><div class="panel" style="background:#eef4e9;align-self:center"><div style="background:#dce9d8;border-radius:13px;padding:25px"><div style="font-size:13px;font-weight:800;letter-spacing:1px">LOCATION CHECKLIST</div><div style="font-size:46px;line-height:1.3;margin:18px 0">◎ <span style="font-size:31px">⌂</span> ◎</div><p style="font-weight:700;font-size:19px">The right price in the wrong location is still the wrong apartment.</p><p class="muted">Look beyond straight-line distance: safe walking routes, school catchment rules, shop hours and access to public transport can matter more.</p></div></div></div></div></section>
 <section class="section" id="features"><div class="container"><div class="heading"><div class="kicker">Built for better decisions</div><h2>All the questions you should ask, in one place.</h2><p>Go beyond listing photos and the advertised monthly rent.</p></div><div class="features"><article class="feature"><div class="symbol">€</div><h3>Is the rent fair?</h3><p>See the asking €/m² when rent and area are known. Automatic comparisons to verified local rentals are still in development.</p></article><article class="feature"><div class="symbol">⌂</div><h3>What's the real cost?</h3><p>Spot missing information about fees, deposits and repairs without invented cost estimates.</p></article><article class="feature"><div class="symbol">◎</div><h3>How's the neighborhood?</h3><p>Explore supermarkets, markets, schools, nurseries, parks and transit near the address through OpenStreetMap.</p></article><article class="feature"><div class="symbol">✦</div><h3>AI photo assessment</h3><p>Planned analysis of visible light, layout, condition and practical tradeoffs. Requires a separately hosted analysis service.</p></article><article class="feature"><div class="symbol">≋</div><h3>Pros, cons and uncertainty</h3><p>Understand why a property looks expensive or attractive, and what still needs an in-person check.</p></article><article class="feature"><div class="symbol">▤</div><h3>Evidence you can review</h3><p>Inspect source-labeled listing details and the questions that still need answers.</p></article></div></div></section>
 <section class="section" id="how" style="background:#fff"><div class="container"><div class="heading"><div class="kicker">Simple by design</div><h2>Three steps to a clearer decision.</h2></div><div class="workflow"><div><div class="stepnum">1</div><h3>Enter the listing</h3><p>Paste a rental link. When direct listing access is unavailable, a pasted description is the current fallback.</p></div><div><div class="stepnum">2</div><h3>Review extracted facts</h3><p>See the advertised rent, size and features, with evidence and clearly marked unknowns.</p></div><div><div class="stepnum">3</div><h3>Understand the tradeoffs</h3><p>Check asking rent per m² when available, nearby services and questions to verify before signing.</p></div></div><div class="banner">BeforeYouSign is an early-stage research tool, not a valuation, survey, legal opinion or guarantee that a property is suitable.</div></div></section></main><footer class="footer"><div class="container footerinner"><div><div class="brand">Before<span style="color:#cde993">You</span>Sign.</div><small>Rent with clarity. Built for curious, careful renters.</small></div><small>© <span id="year"></span> BeforeYouSign · Early access prototype</small></div></footer>
@@ -68,4 +157,4 @@
     });
   });
 })();
-</script><script src="api-config.js"></script><script src="listing-import-v5.js" defer></script></body></html>
+</script><script src="api-config.js"></script><script src="listing-import-v6.js" defer></script><script src="property-report.js" defer></script></body></html>
