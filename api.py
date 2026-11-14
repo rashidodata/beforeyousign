@@ -164,6 +164,55 @@ def parse_listing(payload: ListingParseRequest) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+class ListingImportRequest(BaseModel):
+    url: str = Field(min_length=10, max_length=2000)
+
+
+@app.post("/api/listings/import")
+def import_listing_endpoint(
+    payload: ListingImportRequest,
+    x_bys_import_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Server-only, permission-gated listing lookup; no direct Idealista scraping.
+
+    The public site can call this endpoint safely while unconfigured. Real
+    provider queries remain private until an explicit authorization and usage
+    policy have been implemented. Never put an operator token in browser JS.
+    """
+    import secrets
+    from beforeyousign.listings import parse_idealista_url
+    from beforeyousign.property_provider import ProviderError, import_listing, provider_configured
+
+    try:
+        identity = parse_idealista_url(payload.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not provider_configured():
+        return {
+            **identity,
+            "status": "provider_unavailable",
+            "fields": {},
+            "message": "Automatic listing data is not yet authorized. Upload listing screenshots or paste the description instead.",
+        }
+
+    # Never let unauthenticated internet requests spend provider credits.
+    # A public deployment must first have account auth, quotas, and a
+    # durable usage/cost budget; this operator token is only for private QA.
+    token = os.getenv("BYS_IMPORT_OPERATOR_TOKEN", "")
+    if not token or not x_bys_import_token or not secrets.compare_digest(token, x_bys_import_token):
+        return {
+            **identity,
+            "status": "provider_private",
+            "fields": {},
+            "message": "Automatic import is currently limited to authorized testing. Add listing screenshots to continue.",
+        }
+    try:
+        return import_listing(payload.url)
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @app.post("/api/listings/ai-extract")
 async def ai_extract_listing(
     url: str = Form(...),
