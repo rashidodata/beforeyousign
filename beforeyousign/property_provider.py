@@ -205,9 +205,35 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
     """
     identity = parse_idealista_url(listing_url)
     listing_id = identity["listing_id"]
-    data_id = str(payload.get("adid") or payload.get("propertyId") or "")
+    # Do not mistake an HTTP-200 error envelope (no ID) for a different ad.
+    # Keep the advertised-ID safety check: a different property must never be
+    # presented as the user's requested listing.
+    raw_id = payload.get("adid")
+    if raw_id is None:
+        raw_id = payload.get("propertyId")
+    if raw_id is None or not str(raw_id).strip():
+        # Only log fixed, allowlisted field names, never provider messages,
+        # API keys, contact details, or full response bodies.
+        diagnostic_keys = sorted(set(payload) & {
+            "status", "success", "error", "message", "data", "result",
+            "operation", "priceInfo", "moreCharacteristics",
+        })
+        LOG.warning("OpenData property record missing adid: known_keys=%s",
+                    ",".join(diagnostic_keys) or "none")
+        raise ProviderError(
+            "OpenData returned JSON without an ad ID (adid/propertyId). "
+            "This may be a provider error/status response or an unexpected "
+            "response format; no property ID mismatch was established."
+        )
+    data_id = str(raw_id).strip()
+    if not re.fullmatch(r"[0-9]{5,14}", data_id):
+        LOG.warning("OpenData returned a non-numeric property ID: type=%s",
+                    type(raw_id).__name__)
+        raise ProviderError("OpenData returned an invalid property ID format.")
     if data_id != listing_id:
-        raise ProviderError("The provider returned a different listing ID.")
+        LOG.warning("OpenData returned mismatched property IDs: requested=%s returned=%s",
+                    listing_id, data_id)
+        raise ProviderError("OpenData returned a different listing ID; its data was rejected.")
     operation = str(payload.get("operation") or "").strip().lower()
     if operation not in {"rent", "rental", "alquiler"}:
         return {**identity, "status": "not_confirmed_rental", "listing_operation": operation or "unknown",
