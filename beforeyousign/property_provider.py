@@ -357,6 +357,11 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
     if not neighbourhood:
         concerns.append("The precise location is not evidenced by the provider record.")
     hidden_address = location.get("hasHiddenAddress") is not False
+    # The raw record is never forwarded to a browser. Only bounded, validated
+    # map pin and listing image URLs from the authorized feed are returned.
+    from beforeyousign.report_services import approximate_position, listing_photo_urls
+    map_pin = approximate_position(payload)
+    photo_urls = listing_photo_urls(payload, limit=8)
     return {
         **identity,
         "status": "imported",
@@ -364,6 +369,8 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
         "source": "third_party_listing_feed",
         "independently_verified": False,
         "retrieved_at": retrieved_at or datetime.now(timezone.utc).isoformat(),
+        "map_pin": map_pin,
+        "photo_urls": photo_urls,
         "listing_operation": operation,
         "listing_state": _text(payload.get("state"), 35) or "unknown",
         "location_precision": "approximate_or_hidden" if hidden_address else "provider_advertised",
