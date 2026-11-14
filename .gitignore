@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+*.pyc
+.venv/
+venv/
+# Evaluation inputs, paid-request outputs, and local provider credentials
+provider_evaluation/results*.json
+provider_evaluation/listings*.csv
