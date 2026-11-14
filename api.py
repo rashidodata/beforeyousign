@@ -279,3 +279,120 @@ async def ai_extract_listing(
         raise HTTPException(status_code=422, detail="Could not analyze this listing material.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="AI service unavailable.") from exc
+
+
+def _valid_preview_code(supplied: str | None) -> bool:
+    import secrets
+    stored = os.getenv('BYS_PILOT_ACCESS_CODE', '')
+    return (os.getenv('BYS_PUBLIC_IMPORT_ENABLED') == '1' and stored != ''
+            and isinstance(supplied, str) and secrets.compare_digest(stored, supplied))
+
+
+@app.get('/api/neighborhood/summary')
+def neighborhood_summary_endpoint(
+    lat: float,
+    lon: float,
+    radius_m: int = 1200,
+    x_bys_pilot_code: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Named amenities near the provider map pin, from cached OSM data.
+
+    Distances are straight-line estimates from an advertised coordinate;
+    the calling frontend must disclose approximate/hidden address status.
+    """
+    if not _valid_preview_code(x_bys_pilot_code):
+        raise HTTPException(status_code=401, detail='A valid preview code is required.')
+    from beforeyousign.report_services import neighborhood_summary
+    if not 300 <= radius_m <= 2000 or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(status_code=422, detail='Invalid area or radius.')
+    return neighborhood_summary(lat, lon, radius_m)
+
+
+@app.post('/api/listings/photo-review')
+def listing_photo_review_endpoint(
+    payload: ListingImportRequest,
+    x_bys_pilot_code: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Private, bounded AI review of images already present in cached listings.
+
+    Never calls OpenData again. No preview token or model key is sent to the
+    listing image provider. Image fetch hosts are allowlisted; AI spend is
+    limited independently from unlimited listing lookups.
+    """
+    if not _valid_preview_code(x_bys_pilot_code):
+        raise HTTPException(status_code=401, detail='A valid preview code is required.')
+    from beforeyousign.listings import parse_idealista_url
+    from beforeyousign.import_quota import cached_listing
+    from beforeyousign.report_services import (
+        redis_connection, review_cache_key, fetch_listing_image, _image_url,
+    )
+    try:
+        identity = parse_idealista_url(payload.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    listing = cached_listing(identity['listing_id'])
+    if (not listing or listing.get('source_url') != identity['source_url']
+            or listing.get('status') != 'imported'):
+        return {'status':'unavailable', 'message':'No previously imported listing was found in cache. Import the listing first; this endpoint never spends OpenData credits.'}
+    raw_urls = listing.get('photo_urls') or []
+    urls = [url for url in raw_urls[:8] if isinstance(url,str) and _image_url(url)]
+    if not urls:
+        return {'status':'unavailable','message':'The listing provider did not include usable photo URLs. AI has not analyzed any images.'}
+    api_key = os.getenv('OPENAI_API_KEY', '')
+    if not api_key:
+        return {'status':'unconfigured','message':'AI photo review needs an OPENAI_API_KEY configured privately on Render. The property and neighborhood report still works.'}
+    cache=redis_connection()
+    if cache is None:
+        return {'status':'unavailable','message':'AI review cache is unavailable; no paid model request was made.'}
+    key=review_cache_key(identity['listing_id'],urls[:5])
+    try:
+        saved=cache.get(key)
+        if saved:
+            import json
+            return json.loads(saved)
+        if not cache.set(key+':busy','1',nx=True,ex=120):
+            return {'status':'loading','message':'Photo analysis is already running for this listing. Try again shortly.'}
+    except Exception:
+        return {'status':'unavailable','message':'AI review cache is unavailable; no paid model request was made.'}
+    try:
+        photos=[]
+        for url in urls[:5]:
+            try:
+                data=fetch_listing_image(url)
+                if sum(map(len,photos))+len(data) <= 14_000_000:
+                    photos.append(data)
+            except (ValueError, OSError):
+                continue
+        if not photos:
+            return {'status':'unavailable','message':'The advertised photo host did not provide accessible images; no AI credits were spent.'}
+        # This separate budget does not limit regular property checks.
+        from datetime import datetime, timezone
+        day=datetime.now(timezone.utc).strftime('%Y%m%d')
+        budget_key='bys:photo-ai:daily:'+day
+        try:
+            count=int(cache.incr(budget_key))
+            if count==1:
+                cache.expire(budget_key,90000)
+            max_per_day=min(max(int(os.getenv('BYS_PHOTO_DAILY_LIMIT','30')),1),500)
+        except Exception:
+            return {'status':'unavailable','message':'AI usage budget is unavailable; no paid model request was made.'}
+        if count > max_per_day:
+            return {'status':'unavailable','message':'The shared AI photo review budget for today has been reached. Property lookups remain available.'}
+        try:
+            from beforeyousign.photo_ai import inspect_photos
+            context=f'Advertised rental listing {identity["listing_id"]}. Images are third-party advertisements and may be outdated.'
+            review=inspect_photos(photos,api_key=api_key,context=context)
+        except Exception:
+            return {'status':'unavailable','message':'AI photo inspection failed. No visual condition findings were invented.'}
+        result={'status':'ok','images_analyzed':len(photos),**review}
+        try:
+            import json
+            cache.setex(key,86400,json.dumps(result))
+        except Exception:
+            pass
+        return result
+    finally:
+        try:
+            cache.delete(key+':busy')
+        except Exception:
+            pass
