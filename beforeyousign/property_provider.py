@@ -196,6 +196,58 @@ def _fetch(id_number: str, country: str, *, api_key: str, get: Callable[..., Any
         raise ProviderError("OpenData request failed during transfer. No automatic retry was made.") from exc
 
 
+def _unwrap_property_record(payload: dict[str, Any]) -> dict[str, Any]:
+    """Handle single-property API wrappers without trusting an unrelated record.
+
+    OpenData's observed live response used top-level ``data`` and ``message``.
+    The public docs show a bare record instead. Accept both, and nested
+    single-record envelopes, but never synthesize a missing property ID.
+    Log field names / types only, not provider data or messages.
+    """
+    root = payload
+    current = payload
+    wrappers: list[str] = []
+    for _ in range(4):
+        if any(current.get(k) is not None for k in ("adid", "propertyId", "propertyCode")):
+            if wrappers:
+                LOG.info("OpenData property payload unwrapped: path=%s", ".".join(wrappers))
+            return current
+        child = None
+        child_path = ""
+        for key in ("data", "result", "property", "listing"):
+            value = current.get(key)
+            if isinstance(value, dict):
+                child, child_path = value, key
+                break
+            if isinstance(value, list) and len(value) == 1 and isinstance(value[0], dict):
+                child, child_path = value[0], key + "[0]"
+                break
+        if child is None:
+            break
+        wrappers.append(child_path)
+        current = child
+
+    # Provider-side errors and empty results can be sent with HTTP 200.
+    # Never treat them as property information or reveal freeform messages.
+    allowed_keys = {"status", "success", "error", "message", "data", "result",
+                    "operation", "priceInfo", "moreCharacteristics", "property", "listing"}
+    known = ",".join(sorted(set(root) & allowed_keys)) or "none"
+    data = root.get("data")
+    data_type = type(data).__name__
+    LOG.warning("OpenData property record missing adid: top_keys=%s data_type=%s unwrap_path=%s inner_type=%s",
+                known, data_type, ".".join(wrappers) or "root", type(current).__name__)
+    if data is None or data == {} or data == []:
+        raise ProviderError(
+            "OpenData returned HTTP 200 without an ad ID: empty data field. No property ID mismatch was established. "
+            "The provider did not supply listing details; a request may still have been charged."
+        )
+    raise ProviderError(
+        "OpenData returned HTTP 200 but its data field contained no identifiable "
+        "property (adid/propertyId). This could be a provider status response "
+        "or an unsupported response format."
+    )
+
+
 def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_at: str | None = None) -> dict[str, Any]:
     """Map one provider listing into narrow public fields; omit advertiser PII and photos.
 
@@ -205,12 +257,15 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
     """
     identity = parse_idealista_url(listing_url)
     listing_id = identity["listing_id"]
+    payload = _unwrap_property_record(payload)
     # Do not mistake an HTTP-200 error envelope (no ID) for a different ad.
     # Keep the advertised-ID safety check: a different property must never be
     # presented as the user's requested listing.
     raw_id = payload.get("adid")
     if raw_id is None:
         raw_id = payload.get("propertyId")
+    if raw_id is None:
+        raw_id = payload.get("propertyCode")
     if raw_id is None or not str(raw_id).strip():
         # Only log fixed, allowlisted field names, never provider messages,
         # API keys, contact details, or full response bodies.
