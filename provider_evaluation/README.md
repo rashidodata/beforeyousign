@@ -16,7 +16,7 @@ The last two are **not authorized Idealista integrations by default**. Provider 
 
 1. Collect 10–20 *real rental* listing URLs, covering flats/houses, popular and outlying neighborhoods, different floor levels, furnished/unfurnished units and at least one withdrawn/expired ad. Include only listings the agreement permits us to access.
 2. Save them in a local CSV with header `url` (no private contacts). **Do not commit this file.**
-3. Run `python scripts/evaluate_provider.py your-listings.csv`: dry-run only, no credits.
+3. Run `python -m scripts.evaluate_provider your-listings.csv`: dry-run only, no credits.
 4. After verifying API costs and setting backend environment credentials, run with `--confirm-paid-requests` to measure validity and field coverage. Review against the actual listing manually to estimate accuracy.
 5. Record: success rate, fields populated correctly (rent, built area, bedrooms, floor, town), photos rights, latency, extraction freshness, withdrawn ads, and total charged cost.
 6. Do not publish raw provider responses. Never expose landlord/agent contact details, photos or exact addresses that the listing hides.
