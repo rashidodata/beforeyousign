@@ -1,0 +1,6 @@
+streamlit>=1.45,<2
+pandas>=2.2,<3
+requests>=2.32,<3
+Pillow>=11,<13
+openai>=1.70,<3
+pydeck>=0.9,<1
