@@ -197,30 +197,22 @@ def import_listing_endpoint(
             "message": "Automatic listing data is not yet authorized. Upload listing screenshots or paste the description instead.",
         }
 
-    # Private pilot: explicitly authorized participants only. Fail closed if
-    # preview code or shared quota storage is missing. Never embed secrets in JS.
+    # Private pilot: require a shared access code, but allow repeated requests
+    # and do not impose the previous three-listing daily cap. Successful results
+    # can be served from cache without another paid provider call. A failure
+    # is intentionally NOT cached and can be retried immediately.
     if os.getenv("BYS_PUBLIC_IMPORT_ENABLED") == "1":
         pilot_code = os.getenv("BYS_PILOT_ACCESS_CODE", "")
         if not pilot_code or not x_bys_pilot_code or not secrets.compare_digest(pilot_code, x_bys_pilot_code):
             raise HTTPException(status_code=401, detail="A valid private-preview access code is required.")
-        from beforeyousign.import_quota import QuotaUnavailable, reserve_lookup, cached_listing, cache_listing
+        from beforeyousign.import_quota import cached_listing, cache_listing
         cached = cached_listing(identity["listing_id"])
-        if cached is not None and cached.get("source_url") == identity["source_url"]:
+        if cached is not None and cached.get("source_url") == identity["source_url"] and cached.get("status") == "imported":
             return cached
         try:
-            quota = reserve_lookup(identity["listing_id"])
-        except QuotaUnavailable:
-            return {**identity, "status": "provider_unavailable", "fields": {},
-                    "message": "Automatic listing service is temporarily unavailable. No lookup was charged."}
-        if quota == "limit_reached":
-            return {**identity, "status": "daily_limit_reached", "fields": {},
-                    "message": "Today's automatic listing import limit has been reached."}
-        if quota == "already_requested":
-            return {**identity, "status": "already_requested", "fields": {},
-                    "message": "This property was requested already today. Please try tomorrow."}
-        try:
             result = import_listing(payload.url)
-            cache_listing(identity["listing_id"], result)
+            if result.get("status") == "imported":
+                cache_listing(identity["listing_id"], result)
             return result
         except ProviderError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
