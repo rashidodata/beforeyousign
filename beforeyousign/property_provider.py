@@ -145,16 +145,17 @@ def provider_configured(env: dict[str, str] | None = None) -> bool:
 
 
 def _fetch(id_number: str, country: str, *, api_key: str, get: Callable[..., Any] | None = None) -> dict[str, Any]:
-    """Fetch JSON from a fixed HTTPS provider host, bounded to 2 MB; no SSRF URL input.
+    """One provider request, fixed host, no redirects, bounded JSON response.
 
-    This method is never invoked without explicit configuration and a provider key.
+    Log diagnostic *categories* only. Never log exception text, URLs with
+    embedded credentials, response bodies, or advertiser information.
     """
     requester = get or requests.get
     try:
         response = requester(
             PROVIDER_ENDPOINT,
             params={"key": api_key, "language": "es", "location": country, "propertyId": id_number},
-            timeout=(3, 12),
+            timeout=(5, 20),
             stream=True,
             allow_redirects=False,
             headers={"Accept": "application/json", "User-Agent": "BeforeYouSign/0.2"},
@@ -167,16 +168,32 @@ def _fetch(id_number: str, country: str, *, api_key: str, get: Callable[..., Any
             for chunk in response.iter_content(chunk_size=32768):
                 total += len(chunk)
                 if total > MAX_RESPONSE_BYTES:
-                    raise ProviderError("Listing provider returned an oversized record.")
+                    raise ProviderError("OpenData returned an oversized response (>2 MB).")
                 chunks.append(chunk)
-        result = json.loads(b"".join(chunks))
+        raw = b"".join(chunks)
+        try:
+            result = json.loads(raw)
+        except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
+            LOG.warning("OpenData invalid response: upstream_status=200 json_parse_failed bytes=%d", len(raw))
+            raise ProviderError("OpenData returned HTTP 200 but its response was not valid JSON. No retry was made.") from exc
         if not isinstance(result, dict):
-            raise ProviderError("Listing provider returned an unexpected data format.")
+            LOG.warning("OpenData invalid response: upstream_status=200 unexpected_json_type=%s", type(result).__name__)
+            raise ProviderError("OpenData returned HTTP 200 but the JSON was not a property object.")
         return result
     except ProviderError:
         raise
-    except (requests.RequestException, json.JSONDecodeError, ValueError) as exc:
-        raise ProviderError("Listing provider is temporarily unavailable.") from exc
+    except requests.exceptions.Timeout as exc:
+        LOG.warning("OpenData transport failure: kind=timeout subclass=%s", type(exc).__name__)
+        raise ProviderError("Connection to OpenData timed out. The request may have reached the provider; no automatic retry was made.") from exc
+    except requests.exceptions.SSLError as exc:
+        LOG.warning("OpenData transport failure: kind=tls subclass=%s", type(exc).__name__)
+        raise ProviderError("OpenData HTTPS/TLS connection failed. No automatic retry was made.") from exc
+    except requests.exceptions.ConnectionError as exc:
+        LOG.warning("OpenData transport failure: kind=connection subclass=%s", type(exc).__name__)
+        raise ProviderError("Could not connect to OpenData API (network or DNS failure). No automatic retry was made.") from exc
+    except requests.RequestException as exc:
+        LOG.warning("OpenData transport failure: kind=request subclass=%s", type(exc).__name__)
+        raise ProviderError("OpenData request failed during transfer. No automatic retry was made.") from exc
 
 
 def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_at: str | None = None) -> dict[str, Any]:
