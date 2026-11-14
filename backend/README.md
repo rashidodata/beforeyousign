@@ -31,3 +31,22 @@ curl http://127.0.0.1:8001/health
 ## Limits and privacy
 
 The current MVP is an evidence-led assistant, **not** an appraisal, building inspection, school quality ranking, or legal opinion. It does not automatically fetch Idealista listings; authorized provider API access is required. Do not advertise unavailable endpoints as live features. Avoid uploading rental paperwork and photos before consent, retention controls, authentication, and usage quotas exist. Render Free spins down after inactivity and is not suitable for production SLAs.
+
+## One-link import adapter (staged)
+
+`POST /api/listings/import` accepts `{"url":"https://www.idealista.com/inmueble/12345678/"}`. It returns `provider_unavailable` until a licensed provider is explicitly configured, allowing the frontend to offer screenshot/description import. No direct Idealista scraping is performed.
+
+A private operator can enable the independent OpenData provider **only after verifying licensing and fees** using Render's server-side environment variables (never GitHub files):
+
+```
+BYS_LISTING_PROVIDER=opendata
+BYS_PROVIDER_RIGHTS_CONFIRMED=1
+BYS_OPENDATA_API_KEY=<secret-from-the-provider>
+BYS_IMPORT_OPERATOR_TOKEN=<random-private-operator-token>
+```
+
+The public website intentionally never receives or sends `BYS_IMPORT_OPERATOR_TOKEN` and therefore cannot make paid queries yet. The operator token is for a manually controlled pilot; do not disable it for a public MVP. Before public rollout implement user authentication, a server-side per-account quota, a monthly spend cap, and monitoring. 1-hour in-process caching is an optimization only, not a charge-protection or distributed rate limiter.
+
+The normalized response omits provider photo URLs and advertiser contact details. It never invents market comparables or converts sale price to monthly rent. A listing with no confirmed `operation=rent` returns no rent.
+
+Run 46 automated checks with `python -m pytest -q`. Start the pilot with `python -m scripts.evaluate_provider your-listing-links.csv` (dry run); details and acceptance checklist in `provider_evaluation/README.md`. The official Idealista API application draft is in `provider_evaluation/idealista-application.md` and requires the owner to submit contact information and approve their terms.
