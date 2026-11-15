@@ -210,9 +210,12 @@ def import_listing_endpoint(
         if (cached is not None and cached.get("source_url") == identity["source_url"]
                 and cached.get("status") == "imported"
                 and "map_pin" in cached and "photo_urls" in cached):
-            return cached
+            from beforeyousign.market import enrich_listing_market
+            return enrich_listing_market(cached)
         try:
             result = import_listing(payload.url)
+            from beforeyousign.market import enrich_listing_market
+            result = enrich_listing_market(result)
             if result.get("status") == "imported":
                 cache_listing(identity["listing_id"], result)
             return result
@@ -231,7 +234,8 @@ def import_listing_endpoint(
             "message": "Automatic import is currently limited to authorized testing. Add listing screenshots to continue.",
         }
     try:
-        return import_listing(payload.url)
+        from beforeyousign.market import enrich_listing_market
+        return enrich_listing_market(import_listing(payload.url))
     except ProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -398,3 +402,8 @@ def listing_photo_review_endpoint(
             cache.delete(key+':busy')
         except Exception:
             pass
+
+
+# Paid market searches require explicit opt-in and two server-side activation flags.
+from beforeyousign.market_routes import router as market_router
+app.include_router(market_router)
