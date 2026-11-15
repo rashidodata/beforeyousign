@@ -9,6 +9,7 @@ import os
 from typing import Any
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -407,3 +408,30 @@ def listing_photo_review_endpoint(
 # Paid market searches require explicit opt-in and two server-side activation flags.
 from beforeyousign.market_routes import router as market_router
 app.include_router(market_router)
+
+
+@app.get('/api/listings/photo-pixels')
+def cached_photo_pixels(
+    listing_id: str,
+    index: int = 0,
+    x_bys_pilot_code: str | None = Header(default=None),
+) -> Response:
+    """Return bounded metadata-free JPEG for on-device WebGPU analysis only.
+
+    This never performs a paid OpenData lookup. A cached import and private
+    preview authorization are mandatory; arbitrary image URLs are rejected.
+    """
+    if not _valid_preview_code(x_bys_pilot_code):
+        raise HTTPException(status_code=401, detail='A valid preview code is required.')
+    from beforeyousign.photo_proxy import PhotoUnavailable, jpeg_for_cached_listing
+    try:
+        data = jpeg_for_cached_listing(listing_id, index)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='Invalid listing ID or photo index.') from exc
+    except PhotoUnavailable as exc:
+        raise HTTPException(status_code=404, detail='Cached listing photo is not accessible.') from exc
+    return Response(
+        content=data,
+        media_type='image/jpeg',
+        headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'},
+    )
