@@ -1,5 +1,7 @@
 from io import BytesIO
-from photo_proxy import jpeg_for_cached_listing, PhotoUnavailable
+import pytest
+from PIL import Image
+from beforeyousign.photo_proxy import jpeg_for_cached_listing, PhotoUnavailable
 
 ID='112592538'
 PHOTO='https://img4.idealista.com/photo/123.jpg'
