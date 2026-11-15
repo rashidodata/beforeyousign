@@ -435,3 +435,9 @@ def cached_photo_pixels(
         media_type='image/jpeg',
         headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'},
     )
+
+
+# Automatic property-level photo summaries run only with a separately configured
+# private GPU model service and explicit operator enablement.
+from beforeyousign.hosted_vision_routes import router as hosted_vision_router
+app.include_router(hosted_vision_router)
