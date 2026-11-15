@@ -159,15 +159,12 @@
       <div class="report-kicker">05 · Visual inspection</div><h3>What do the photos suggest?</h3>
       <p class="report-soft">AI examines only visible details in advertisement photos—never hidden defects, structural safety, legal compliance or exact room dimensions. Confirm important observations in person.</p>
       <div id="report-photo-strip" class="report-photo-strip" aria-label="Advertised listing photographs"></div>
-      <p class="report-detail-notice" id="report-ai-state">Listing photo review is optional and runs on your device. No OpenAI credits are used.</p>
+      <p class="report-detail-notice" id="report-ai-state">An automatic review will be requested when a listing is imported.</p>
       <div class="report-insight">
-        <h4>SmolVLM2-500M · Local image analysis</h4>
-        <p class="report-soft">Select up to three photos or use cached listing photos. The vision model runs in your browser using WebGPU. First use downloads model weights, which can require substantial bandwidth and GPU memory. No property photos are sent to OpenAI.</p>
-        <label for="smolvlm-local-photos" style="display:block;margin:10px 0 5px;font-weight:650">Optional local photos (JPG, PNG, WebP; maximum 3)</label>
-        <input id="smolvlm-local-photos" type="file" multiple accept="image/jpeg,image/png,image/webp" style="max-width:100%;margin-bottom:12px">
-        <div><button id="smolvlm-run" type="button" class="btn">Analyze photos locally · SmolVLM2</button></div>
-        <p id="smolvlm-status" class="report-soft" role="status" aria-live="polite">Use a WebGPU-enabled browser such as current Chrome or Edge.</p>
-        <div id="smolvlm-results" aria-live="polite"></div>
+        <h4>SmolVLM2-500M · Resumen global de las fotos / Overall photo review</h4>
+        <p class="report-soft">Todas las fotos disponibles se revisan automáticamente en un servicio de modelo alojado y se combinan en un único informe. El resultado se guarda en caché. No se utiliza OpenAI para este análisis. / All available photos are automatically reviewed by a hosted model and combined into one cached report. No OpenAI photo-analysis API is used.</p>
+        <p id="hosted-vision-status" class="report-detail-notice" role="status" aria-live="polite">El análisis automático requiere que se configure el servidor del modelo. / Automatic analysis requires the model server to be configured.</p>
+        <div id="hosted-vision-results" aria-live="polite"></div>
       </div>
       <div id="report-ai-findings"></div>
     </article>
@@ -202,4 +199,4 @@
     });
   });
 })();
-</script><script src="api-config.js"></script><script src="site-i18n.js" defer></script><script src="listing-import-v6.js" defer></script><script src="property-report-v3.js" defer></script><script src="smolvlm2-photo.js" defer></script><script src="market-report.js" defer></script></body></html>
+</script><script src="api-config.js"></script><script src="site-i18n.js" defer></script><script src="listing-import-v6.js" defer></script><script src="property-report-v4.js" defer></script><script src="hosted-vision-report.js" defer></script><script src="market-report.js" defer></script></body></html>
