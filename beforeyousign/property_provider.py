@@ -362,6 +362,13 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
     from beforeyousign.report_services import approximate_position, listing_photo_urls
     map_pin = approximate_position(payload)
     photo_urls = listing_photo_urls(payload, limit=8)
+    # Reuse only an actual provider search location identifier when present.
+    # Never infer one from coordinates or substitute a city-wide location ID.
+    market_location_candidate = (location.get("locationId") or location.get("locationCode")
+                                 or payload.get("locationId"))
+    market_location_id = (market_location_candidate if isinstance(market_location_candidate, str)
+                          and re.fullmatch(r"[0-9A-Za-z-]{6,110}", market_location_candidate)
+                          else None)
     return {
         **identity,
         "status": "imported",
@@ -371,6 +378,7 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
         "retrieved_at": retrieved_at or datetime.now(timezone.utc).isoformat(),
         "map_pin": map_pin,
         "photo_urls": photo_urls,
+        "market_location_id": market_location_id,
         "listing_operation": operation,
         "listing_state": _text(payload.get("state"), 35) or "unknown",
         "location_precision": "approximate_or_hidden" if hidden_address else "provider_advertised",
