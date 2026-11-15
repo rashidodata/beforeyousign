@@ -361,7 +361,7 @@ def normalize_property(payload: dict[str, Any], listing_url: str, *, retrieved_a
     # map pin and listing image URLs from the authorized feed are returned.
     from beforeyousign.report_services import approximate_position, listing_photo_urls
     map_pin = approximate_position(payload)
-    photo_urls = listing_photo_urls(payload, limit=8)
+    photo_urls = listing_photo_urls(payload, limit=100)
     # Reuse only an actual provider search location identifier when present.
     # Never infer one from coordinates or substitute a city-wide location ID.
     market_location_candidate = (location.get("locationId") or location.get("locationCode")
